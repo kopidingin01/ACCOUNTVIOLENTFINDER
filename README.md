@@ -113,6 +113,7 @@ cd frontend && npm run build # type-checks + builds the frontend
 - [REPORT_WORKFLOW.md](docs/REPORT_WORKFLOW.md) — the case → report → submission state machine
 - [POLICY_ENGINE.md](docs/POLICY_ENGINE.md) — why keyword ≠ violation, and how triage works
 - [EVIDENCE_GUIDE.md](docs/EVIDENCE_GUIDE.md) — evidence types, hashing, chain of custody
+- [panduan-pengguna.html](docs/panduan-pengguna.html) — Indonesian-language interactive operator guide (open in a browser); covers every menu, role-based access, and directly addresses whether this system can force a platform takedown (it can't, by design — see that page's "Soal Takedown" section)
 
 ## Project layout
 
