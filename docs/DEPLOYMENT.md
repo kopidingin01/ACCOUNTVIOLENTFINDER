@@ -137,6 +137,77 @@ is unaffected. For real evidence file storage on a free tier, point `STORAGE_PAT
 external object store (S3-compatible; Supabase Storage is a natural fit since you already
 have a Supabase project) — that's a code change this repo doesn't include yet.
 
+## Free hosting, no credit card at all: Vercel only (frontend + backend)
+
+If Render asks your account for a credit card (it does risk-based verification per
+account/region, so this varies — if it happened to you, this is the alternative), you can
+run *both* halves on Vercel instead. Vercel's free "Hobby" tier for both static sites and
+serverless Python functions requires no card, on any account, as of this writing.
+
+**The tradeoff, and it's a real one**: the FastAPI backend runs as a *serverless function*,
+not a long-running process. Two consequences that don't exist in the Docker/Render setup:
+
+- **Cold starts on every idle request** (similar to Render's free-tier sleep, but per-function
+  rather than per-15-minutes — expect it more often).
+- **No writable disk at all**, except `/tmp`, and `/tmp` is wiped between invocations — not
+  just between deploys. Practically: **uploaded evidence files do not persist**, even less
+  than Render's "lost on redeploy" limitation. Set `STORAGE_PATH=/tmp` so uploads at least
+  don't crash the request, but treat file-upload evidence as non-functional on this path.
+  Reference-URL evidence (no file upload) is unaffected, and the database — Supabase Postgres
+  — persists normally since it's a separate managed service, not the function's own disk.
+  If you need real file persistence on a free tier, point `STORAGE_PATH` at an external object
+  store (e.g. Supabase Storage) — a code change this repo doesn't include yet.
+
+This repo already includes what Vercel needs:
+
+- `backend/vercel.json` — tells Vercel to build `backend/api/index.py` with the
+  `@vercel/python` runtime and route all paths to it.
+- `backend/api/index.py` — a thin entrypoint that imports the same `app` object from
+  `main.py` unchanged, so it's the exact same code path as `uvicorn main:app` locally.
+- `frontend/src/api/client.ts` — already reads `VITE_API_BASE_URL` at build time for exactly
+  this split-host case (see `frontend/.env.example`).
+
+### 1. Deploy the backend on Vercel
+
+1. [vercel.com](https://vercel.com) → sign up (GitHub login, no card) → **Add New** →
+   **Project** → import this repo.
+2. Set **Root Directory** to `backend`. Vercel should detect the Python runtime from
+   `vercel.json`; if it offers a framework preset, choose "Other".
+3. Under **Environment Variables**, add everything from `backend/.env.example` that has no
+   safe default — at minimum `DATABASE_URL` (your Supabase connection string) and
+   `JWT_SECRET` (any long random value). Also set `STORAGE_PATH=/tmp` and leave
+   `CORS_ORIGINS` as a placeholder for now.
+4. Deploy. Note the resulting URL, e.g. `https://your-backend.vercel.app`. Confirm it's
+   alive: `curl https://your-backend.vercel.app/api/health`.
+
+### 2. Deploy the frontend on Vercel (a second, separate project)
+
+1. **Add New** → **Project** → import this repo again.
+2. Set **Root Directory** to `frontend` (Vercel auto-detects the Vite preset).
+3. Under **Environment Variables**, add `VITE_API_BASE_URL` =
+   `https://your-backend.vercel.app/api` (your actual backend URL from step 1). This is a
+   build-time value — set it before deploying, not after.
+4. Deploy. Note the resulting URL, e.g. `https://your-app.vercel.app`.
+
+### 3. Close the loop: point the backend's CORS at the frontend
+
+Back in the **backend** Vercel project → **Settings** → **Environment Variables** → set
+`CORS_ORIGINS` to your real frontend URL (e.g. `https://your-app.vercel.app`) → redeploy.
+Without this, the browser blocks every API call with a CORS error.
+
+### 4. Seed real data (one time)
+
+Same as the Render path — run these from your own machine against the same
+`DATABASE_URL`, since they write to the database directly and don't need to go "through"
+the deployed API:
+
+```bash
+cd backend
+python seed.py
+python seed_x_policies.py
+python seed_more_platforms.py
+```
+
 ## Running without Docker
 
 See the Quick Start in the root `README.md`. In short: a Python venv for the backend
