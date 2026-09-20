@@ -60,7 +60,14 @@ def to_pdf(report: Report) -> bytes:
         Paragraph(str(body.get("violation_category")), styles["Normal"]),
         Spacer(1, 8),
         Paragraph("RELEVANT POLICY", styles["Heading3"]),
-        Paragraph(str((body.get("relevant_policy") or {}).get("reason")), styles["Normal"]),
+        Paragraph(str((body.get("relevant_policy") or {}).get("citation") or "Not yet assessed."), styles["Normal"]),
+    ]
+    policy = body.get("relevant_policy") or {}
+    if policy.get("severity"):
+        flow.append(Paragraph(f"Severity: {policy['severity']}", styles["Normal"]))
+    if policy.get("policy_url"):
+        flow.append(Paragraph(f"Policy reference: {policy['policy_url']}", styles["Normal"]))
+    flow += [
         Spacer(1, 8),
         Paragraph("DESCRIPTION", styles["Heading3"]),
         Paragraph(body.get("description", ""), styles["Normal"]),

@@ -92,6 +92,110 @@ def test_report_submission_blocked_until_ready(client, SessionLocal):
     assert submit.json()["detail"]["error"] == "REPORT_NOT_READY"
 
 
+def test_readiness_preview_available_before_report_exists(client, SessionLocal):
+    make_user(SessionLocal, "admin_rd4", Role.ADMIN)
+    make_user(SessionLocal, "analyst_rd4", Role.ANALYST)
+    admin_token = login(client, "admin_rd4")
+    analyst_token = login(client, "analyst_rd4")
+
+    platform = client.post(
+        "/api/platforms",
+        headers=auth_headers(admin_token),
+        json={"name": "ReadinessPlatform", "domain": "readiness-platform.example"},
+    ).json()
+    case = client.post(
+        "/api/cases",
+        headers=auth_headers(analyst_token),
+        json={"title": "Readiness preview case", "platform_id": platform["id"]},
+    ).json()
+
+    # Before any evidence exists at all.
+    empty_preview = client.get(f"/api/cases/{case['id']}/readiness", headers=auth_headers(analyst_token)).json()
+    assert empty_preview["level"] == "INSUFFICIENT"
+    assert empty_preview["score"] == 0.0
+    assert any(item["key"] == "evidence" and not item["met"] for item in empty_preview["items"])
+
+    # No Report row should exist yet from just previewing.
+    reports = client.get("/api/reports", headers=auth_headers(analyst_token), params={"case_id": case["id"]}).json()
+    assert reports == []
+
+    ev = client.post(
+        "/api/evidence",
+        headers=auth_headers(analyst_token),
+        data={
+            "case_id": case["id"],
+            "type": "PUBLIC_POST",
+            "source_url": "https://readiness-platform.example/post/1",
+            "description": "Some context here",
+        },
+    ).json()
+    client.post(f"/api/evidence/{ev['id']}/verify", headers=auth_headers(analyst_token), json={})
+
+    better_preview = client.get(f"/api/cases/{case['id']}/readiness", headers=auth_headers(analyst_token)).json()
+    assert better_preview["score"] > empty_preview["score"]
+    assert any(item["key"] == "evidence" and item["met"] for item in better_preview["items"])
+
+
+def test_report_policy_citation_includes_full_reference(client, SessionLocal):
+    make_user(SessionLocal, "admin_rd5", Role.ADMIN)
+    make_user(SessionLocal, "analyst_rd5", Role.ANALYST)
+    admin_token = login(client, "admin_rd5")
+    analyst_token = login(client, "analyst_rd5")
+
+    platform = client.post(
+        "/api/platforms",
+        headers=auth_headers(admin_token),
+        json={"name": "CitationPlatform", "domain": "citation-platform.example"},
+    ).json()
+    policy = client.post(
+        "/api/policies",
+        headers=auth_headers(admin_token),
+        json={"platform_id": platform["id"], "name": "Community Guidelines", "policy_url": "https://citation-platform.example/rules"},
+    ).json()
+    rule = client.post(
+        "/api/policies/rules",
+        headers=auth_headers(admin_token),
+        json={
+            "policy_id": policy["id"],
+            "rule_code": "POL-CITE-1",
+            "category": "SPAM",
+            "description": "Repetitive unsolicited promotional content.",
+            "severity": "LOW",
+            "keywords": "promo gratis",
+        },
+    ).json()
+    case = client.post(
+        "/api/cases",
+        headers=auth_headers(analyst_token),
+        json={"title": "Citation test case", "platform_id": platform["id"]},
+    ).json()
+    ev = client.post(
+        "/api/evidence",
+        headers=auth_headers(analyst_token),
+        data={
+            "case_id": case["id"],
+            "type": "PUBLIC_POST",
+            "source_url": "https://citation-platform.example/post/1",
+            "description": "promo gratis klaim sekarang",
+        },
+    ).json()
+    client.post(f"/api/evidence/{ev['id']}/verify", headers=auth_headers(analyst_token), json={})
+    assessment = client.post("/api/assessments", headers=auth_headers(analyst_token), json={"case_id": case["id"]}).json()[0]
+
+    report = client.post(
+        "/api/reports",
+        headers=auth_headers(analyst_token),
+        json={"case_id": case["id"], "assessment_id": assessment["id"]},
+    ).json()
+
+    relevant_policy = report["body"]["relevant_policy"]
+    assert relevant_policy["policy_name"] == "Community Guidelines"
+    assert relevant_policy["policy_url"] == "https://citation-platform.example/rules"
+    assert relevant_policy["rule_code"] == "POL-CITE-1"
+    assert "Community Guidelines" in relevant_policy["citation"]
+    assert "POL-CITE-1" in relevant_policy["citation"]
+
+
 def test_report_export_formats(client, SessionLocal):
     make_user(SessionLocal, "admin_rd3", Role.ADMIN)
     make_user(SessionLocal, "analyst_rd3", Role.ANALYST)

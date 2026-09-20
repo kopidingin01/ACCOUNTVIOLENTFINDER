@@ -72,6 +72,21 @@ export default function EvidencePage() {
             <input className="rounded-md bg-surface border border-surface-border px-3 py-2 text-sm" placeholder="Source URL (https://…)" value={form.source_url} onChange={(e) => setForm({ ...form, source_url: e.target.value })} />
           </div>
           <textarea className="w-full rounded-md bg-surface border border-surface-border px-3 py-2 text-sm" placeholder="Description / context" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <details className="rounded-md border border-surface-border bg-surface px-3 py-2">
+            <summary className="text-xs text-blue-400 cursor-pointer select-none">Tips: cara menulis deskripsi yang kuat</summary>
+            <div className="mt-2 space-y-2 text-xs">
+              <div>
+                <span className="text-emerald-400 font-medium">✓ Kuat</span>
+                <p className="text-slate-400 mt-0.5">"Postingan menawarkan &lsquo;investasi pasti untung&rsquo; dengan skema transfer dulu ke rekening pribadi, diunggah 14 Sept 2026, ditujukan ke followers publik akun tersebut."</p>
+                <p className="text-slate-600">— siapa/apa, kata-kata persis, tanggal, dan konteks siapa yang ditarget.</p>
+              </div>
+              <div>
+                <span className="text-rose-400 font-medium">✗ Lemah</span>
+                <p className="text-slate-400 mt-0.5">"Akun ini scam."</p>
+                <p className="text-slate-600">— kesimpulan tanpa bukti tekstual; reviewer tidak bisa memverifikasi apa yang sebenarnya terjadi.</p>
+              </div>
+            </div>
+          </details>
           <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-400" />
           <p className="text-[11px] text-slate-500">Allowed: images, video, PDF, text/JSON/HTML, up to 25MB. Files are stored under a randomized name; SHA-256 is computed automatically.</p>
           {error && <div className="text-sm text-rose-400">{error}</div>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError, downloadFile } from "../api/client";
 import Layout from "../components/Layout";
+import ReadinessCheck from "../components/ReadinessCheck";
 import SafeLink from "../components/SafeLink";
 import StatusBadge from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
@@ -83,6 +84,8 @@ export default function CaseDetail() {
       </div>
 
       {message && <div className="mb-4 text-sm text-amber-400 border border-amber-500/30 bg-amber-500/10 rounded-md px-3 py-2">{message}</div>}
+
+      {id && <ReadinessCheck caseId={id} refreshKey={`${evidence.length}-${assessments.length}-${reports.length}`} />}
 
       {target && (
         <Section title="Target Account">
