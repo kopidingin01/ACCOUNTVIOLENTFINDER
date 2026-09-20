@@ -13,7 +13,7 @@ def _derive_fernet_key(secret: str) -> bytes:
     return base64.urlsafe_b64encode(digest)
 
 
-_fernet = Fernet(_derive_fernet_key(settings.jwt_secret))
+_fernet = Fernet(_derive_fernet_key(settings.encryption_secret))
 
 
 def encrypt_secret(plaintext: str) -> str:
