@@ -68,6 +68,75 @@ Dockerfiles' build contexts, and the nginx volume mount all resolve correctly (n
 daemon was available in the sandbox to actually build/run the images — do that yourself
 before relying on this in production).
 
+## Free hosting: Render (backend) + Vercel (frontend)
+
+This is the no-cost path to a real public URL, no credit card required on either side.
+Render's free web-service tier and Vercel's free static-hosting tier are both genuinely
+free (not a time-limited trial) — the tradeoff is Render's free backend goes to sleep after
+~15 minutes of no traffic and takes 30–60 seconds to wake up on the next request. Fine for a
+personal/demo deployment; not what you'd want for something latency-sensitive at scale.
+
+**Why two separate hosts instead of one**: the app is a decoupled API + SPA (frontend calls
+the backend over HTTP), so it doesn't need to live behind one nginx like the Docker Compose
+setup does — each half can go to the host that's best (and free) for it.
+
+### 1. Deploy the backend on Render
+
+1. Push this repo to your own GitHub account (fork or your existing remote).
+2. [render.com](https://render.com) → sign up (GitHub login) → **New** → **Blueprint** →
+   select this repo. Render reads `render.yaml` at the repo root and proposes one service,
+   `report-validator-backend`, as a free Docker web service.
+3. Before/after the first deploy, set these in the service's **Environment** tab (the
+   blueprint marks them `sync: false` so Render won't guess a value):
+   - `DATABASE_URL` — your Supabase (or other Postgres) connection string, exactly as in
+     your local `.env`.
+   - `CORS_ORIGINS` — leave a placeholder for now (e.g. `http://localhost:5173`); you'll
+     update it once you have the Vercel URL in step 3 below.
+4. Deploy. Note the resulting URL, e.g. `https://report-validator-backend.onrender.com`.
+   Confirm it's alive: `curl https://report-validator-backend.onrender.com/api/health`.
+
+### 2. Deploy the frontend on Vercel
+
+1. [vercel.com](https://vercel.com) → sign up (GitHub login) → **Add New** → **Project** →
+   import this repo.
+2. Set **Root Directory** to `frontend` (Vercel auto-detects the Vite framework preset from
+   there).
+3. Under **Environment Variables**, add `VITE_API_BASE_URL` =
+   `https://report-validator-backend.onrender.com/api` (your actual Render URL + `/api`).
+   This is read at *build* time (see `frontend/.env.example`), so it must be set before you
+   deploy, not after.
+4. Deploy. Note the resulting URL, e.g. `https://your-app.vercel.app`.
+
+### 3. Close the loop: point the backend's CORS at the frontend
+
+Back in Render → your service → **Environment** → set `CORS_ORIGINS` to your real Vercel
+URL (e.g. `https://your-app.vercel.app`) → save, which triggers a redeploy. Without this
+step the browser will block every API call with a CORS error even though both services are
+individually reachable.
+
+### 4. Seed real data (one time)
+
+From your own machine (with `DATABASE_URL` in your local `.env` pointed at the same
+Supabase database Render is using):
+
+```bash
+cd backend
+python seed.py               # optional demo data
+python seed_x_policies.py    # X platform + 13 policy rules
+python seed_more_platforms.py  # Facebook, Instagram, TikTok, YouTube, Threads
+```
+
+These write directly to the database, not through the deployed API, so there's no need to
+run them "on" Render — running them locally against the same `DATABASE_URL` is equivalent
+and simpler.
+
+**Known limitation of this free setup**: Render's free plan has no persistent disk, so
+anything written to `STORAGE_PATH` (uploaded evidence files) is lost on every redeploy or
+sleep/wake cycle — only the database rows survive. Reference-URL evidence (no file upload)
+is unaffected. For real evidence file storage on a free tier, point `STORAGE_PATH` at an
+external object store (S3-compatible; Supabase Storage is a natural fit since you already
+have a Supabase project) — that's a code change this repo doesn't include yet.
+
 ## Running without Docker
 
 See the Quick Start in the root `README.md`. In short: a Python venv for the backend

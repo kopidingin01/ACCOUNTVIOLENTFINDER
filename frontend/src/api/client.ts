@@ -1,3 +1,11 @@
+// Same-origin deployments (nginx reverse proxy, or the Vite dev proxy in
+// vite.config.ts) work with the default "/api" — the request stays on
+// whatever domain served the page. Split deployments (frontend and
+// backend on two different hosts, e.g. a static site + a separate API
+// service) need this pointed at the backend's full URL instead, set at
+// build time via VITE_API_BASE_URL (see .env.example / DEPLOYMENT.md).
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+
 const TOKEN_KEY = "report_validator_access_token";
 
 export function getToken(): string | null {
@@ -27,7 +35,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const resp = await fetch(`/api${path}`, { ...options, headers });
+  const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (resp.status === 204) return undefined as T;
 
@@ -55,7 +63,7 @@ export async function downloadFile(path: string, filename: string): Promise<void
   const token = getToken();
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const resp = await fetch(`/api${path}`, { headers });
+  const resp = await fetch(`${API_BASE}${path}`, { headers });
   if (!resp.ok) throw new ApiError(resp.status, await resp.text());
   const blob = await resp.blob();
   const url = URL.createObjectURL(blob);

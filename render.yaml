@@ -1,0 +1,52 @@
+# Render Blueprint — deploys just the backend as a free Docker web service.
+# The frontend is deployed separately on Vercel (see DEPLOYMENT.md,
+# "Free hosting: Render + Vercel") since Vercel is the stronger free host
+# for a static Vite build (no cold-start sleep, faster global CDN).
+#
+# Usage: Render dashboard -> New -> Blueprint -> pick this repo -> Apply.
+# Fields marked sync:false must be filled in by hand in the Render
+# dashboard after the first deploy (never commit real secrets here).
+
+services:
+  - type: web
+    name: report-validator-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # your Supabase (or other Postgres) connection string
+      - key: CORS_ORIGINS
+        sync: false # e.g. https://your-frontend.vercel.app — set once the frontend is deployed
+      - key: JWT_SECRET
+        generateValue: true # Render generates a random secret for you
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: STORAGE_PATH
+        value: /app/storage/evidence
+      - key: MAX_UPLOAD_MB
+        value: "25"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: EVIDENCE_RETENTION_DAYS
+        value: "365"
+      - key: CASE_RETENTION_DAYS
+        value: "730"
+      - key: AUDIT_RETENTION_DAYS
+        value: "1825"
+      - key: SEARCH_PROVIDER
+        value: none
+      - key: SEARCH_API_KEY
+        value: ""
+      - key: PLATFORM_API_KEY
+        value: ""
+      - key: OLLAMA_URL
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: llama3
