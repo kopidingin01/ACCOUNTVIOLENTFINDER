@@ -1,8 +1,10 @@
-"""Entrypoint for Vercel's Python runtime (see vercel.json at the backend
-root). Vercel needs an importable ASGI `app` object at this path; the
-real application lives in main.py one directory up, unchanged, so the
-exact same code path is used whether you run `uvicorn main:app` locally
-or deploy this to Vercel — this file is a thin re-export, not a fork.
+"""Entrypoint for Vercel's Python runtime (see vercel.json at the repo
+root, "backend" service). Vercel's zero-config Python detection looks
+for an ASGI `app` object under api/, and needs it importable at this
+path; the real application lives in main.py one directory up, unchanged,
+so the exact same code path is used whether you run `uvicorn main:app`
+locally or deploy this to Vercel — this file is a thin re-export, not a
+fork.
 """
 
 import os

@@ -158,42 +158,52 @@ not a long-running process. Two consequences that don't exist in the Docker/Rend
   If you need real file persistence on a free tier, point `STORAGE_PATH` at an external object
   store (e.g. Supabase Storage) — a code change this repo doesn't include yet.
 
-This repo already includes what Vercel needs:
+This repo already includes what Vercel needs, as a single **multi-service project**
+(Vercel's "Services" preset) rather than two separate projects:
 
-- `backend/vercel.json` — tells Vercel to build `backend/api/index.py` with the
-  `@vercel/python` runtime and route all paths to it.
+- `vercel.json` at the **repo root** — declares two services, `frontend` (root `frontend/`,
+  Vite) and `backend` (root `backend/`), and rewrites `/api/*` to the backend service and
+  everything else to the frontend. Both services end up on the **same domain**, so there's
+  no cross-origin call between them at all.
 - `backend/api/index.py` — a thin entrypoint that imports the same `app` object from
-  `main.py` unchanged, so it's the exact same code path as `uvicorn main:app` locally.
-- `frontend/src/api/client.ts` — already reads `VITE_API_BASE_URL` at build time for exactly
-  this split-host case (see `frontend/.env.example`).
+  `main.py` unchanged; Vercel's zero-config Python detection picks up any ASGI `app` under
+  `api/`, so it's the exact same code path as `uvicorn main:app` locally.
+- `frontend/src/api/client.ts` — defaults to a relative `/api`, which is exactly right here
+  since the backend is reachable at `/api` on the same domain. `VITE_API_BASE_URL` isn't
+  needed for this deployment path (it exists for genuinely split-host setups, like the
+  Render + Vercel option above).
 
-### 1. Deploy the backend on Vercel
+### 1. Create the project
 
 1. [vercel.com](https://vercel.com) → sign up (GitHub login, no card) → **Add New** →
    **Project** → import this repo.
-2. Set **Root Directory** to `backend`. Vercel should detect the Python runtime from
-   `vercel.json`; if it offers a framework preset, choose "Other".
-3. Under **Environment Variables**, add everything from `backend/.env.example` that has no
-   safe default — at minimum `DATABASE_URL` (your Supabase connection string) and
-   `JWT_SECRET` (any long random value). Also set `STORAGE_PATH=/tmp` and leave
-   `CORS_ORIGINS` as a placeholder for now.
-4. Deploy. Note the resulting URL, e.g. `https://your-backend.vercel.app`. Confirm it's
-   alive: `curl https://your-backend.vercel.app/api/health`.
+2. Vercel should detect `vercel.json` at the root and offer the **Services** preset, showing
+   both `frontend` (Vite, root `frontend`) and `backend` (root `backend`) auto-detected.
+   Leave the project's own **Root Directory** as `./`.
+3. If Vercel says the root `vercel.json` isn't found yet, make sure you're importing the
+   branch that has this commit, then click **Refresh** in that panel.
 
-### 2. Deploy the frontend on Vercel (a second, separate project)
+### 2. Set the backend's environment variables
 
-1. **Add New** → **Project** → import this repo again.
-2. Set **Root Directory** to `frontend` (Vercel auto-detects the Vite preset).
-3. Under **Environment Variables**, add `VITE_API_BASE_URL` =
-   `https://your-backend.vercel.app/api` (your actual backend URL from step 1). This is a
-   build-time value — set it before deploying, not after.
-4. Deploy. Note the resulting URL, e.g. `https://your-app.vercel.app`.
+Before or right after the first deploy, find the **backend** service's own Environment
+Variables (Vercel exposes per-service env vars in a multi-service project) and set
+everything from `backend/.env.example` that has no safe default — at minimum:
 
-### 3. Close the loop: point the backend's CORS at the frontend
+- `DATABASE_URL` — your Supabase connection string.
+- `JWT_SECRET` — any long random value.
+- `STORAGE_PATH` — set to `/tmp` (see the limitation above).
 
-Back in the **backend** Vercel project → **Settings** → **Environment Variables** → set
-`CORS_ORIGINS` to your real frontend URL (e.g. `https://your-app.vercel.app`) → redeploy.
-Without this, the browser blocks every API call with a CORS error.
+`CORS_ORIGINS` doesn't need to be set at all for this path — frontend and backend share an
+origin, so the browser never makes a cross-origin request.
+
+### 3. Deploy and verify
+
+Deploy. You'll get one URL, e.g. `https://violentfinder.vercel.app` — the frontend lives at
+`/` and the API at `/api`. Confirm the backend is alive:
+
+```bash
+curl https://violentfinder.vercel.app/api/health
+```
 
 ### 4. Seed real data (one time)
 
