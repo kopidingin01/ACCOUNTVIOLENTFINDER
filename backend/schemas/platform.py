@@ -18,6 +18,25 @@ class PlatformOut(BaseModel):
         from_attributes = True
 
 
+class ApiCredentialCreate(BaseModel):
+    credential_type: str  # api_key, oauth2, webhook_secret
+    value: str
+    enabled: bool = True
+
+
+class ApiCredentialOut(BaseModel):
+    """Never includes the secret value — only metadata, per spec section 23
+    ("never displayed in logs, never returned through frontend API")."""
+
+    id: str
+    platform_id: str
+    credential_type: str
+    enabled: bool
+
+    class Config:
+        from_attributes = True
+
+
 class PlatformCreate(BaseModel):
     name: str
     domain: str
