@@ -111,6 +111,21 @@ export interface Assessment {
   reviewed_at: string | null;
 }
 
+export interface ReadinessChecklistItem {
+  key: string;
+  label: string;
+  weight: number;
+  met: boolean;
+}
+
+export interface ReadinessPreview {
+  score: number;
+  level: "READY" | "NEEDS_REVIEW" | "INSUFFICIENT";
+  missing_items: string[];
+  items: ReadinessChecklistItem[];
+  assessment_status: string | null;
+}
+
 export interface Report {
   id: string;
   report_number: string;

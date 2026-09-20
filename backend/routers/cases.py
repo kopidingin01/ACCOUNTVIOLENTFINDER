@@ -6,8 +6,9 @@ from models.case import Case
 from models.enums import CaseStatus, Priority
 from models.user import User
 from schemas.case import CaseCreate, CaseOut, CaseUpdate
+from schemas.report import ReadinessPreview
 from security import require_permission
-from services import audit_service
+from services import audit_service, report_service
 from utils.ids import generate_case_number
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
@@ -57,6 +58,17 @@ def get_case(case_id: str, db: Session = Depends(get_db), user: User = Depends(r
     if not case:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Case not found")
     return case
+
+
+@router.get("/{case_id}/readiness", response_model=ReadinessPreview)
+def get_case_readiness(case_id: str, db: Session = Depends(get_db), user: User = Depends(require_permission("case:read"))):
+    """Live report-quality checklist, computable at any point in a case's
+    life — lets an operator see exactly what's still missing before ever
+    generating a report, per section 40 of the spec."""
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Case not found")
+    return report_service.preview_readiness(db, case)
 
 
 @router.patch("/{case_id}", response_model=CaseOut)

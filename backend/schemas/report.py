@@ -30,6 +30,21 @@ class ReportOut(BaseModel):
         from_attributes = True
 
 
+class ReadinessChecklistItem(BaseModel):
+    key: str
+    label: str
+    weight: float
+    met: bool
+
+
+class ReadinessPreview(BaseModel):
+    score: float
+    level: str
+    missing_items: list[str]
+    items: list[ReadinessChecklistItem]
+    assessment_status: str | None
+
+
 class ReportSubmitRequest(BaseModel):
     method: str = "MANUAL"  # MANUAL or API
     external_reference: str | None = None
