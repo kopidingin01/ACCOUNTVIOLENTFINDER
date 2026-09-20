@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import Layout from "../components/Layout";
+import SafeLink from "../components/SafeLink";
 import type { Platform, Target } from "../types";
 
 export default function Targets() {
@@ -28,9 +29,9 @@ export default function Targets() {
             </div>
             <div className="text-xs text-slate-400 mt-1">{platformName(t.platform_id)}</div>
             {t.profile_description && <p className="text-xs text-slate-400 mt-2 line-clamp-3">{t.profile_description}</p>}
-            <a href={t.profile_url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline block mt-2 truncate">
+            <SafeLink href={t.profile_url} className="text-xs text-blue-400 hover:underline block mt-2 truncate">
               {t.profile_url}
-            </a>
+            </SafeLink>
             <div className="flex gap-3 text-[11px] text-slate-500 mt-2">
               <span>Followers: {t.public_followers ?? "—"}</span>
               <span>Posts: {t.public_posts ?? "—"}</span>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError, downloadFile } from "../api/client";
 import Layout from "../components/Layout";
+import SafeLink from "../components/SafeLink";
 import StatusBadge from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import type { AuditLogEntry, Case, Evidence, Assessment, Platform, Report, Target } from "../types";
@@ -89,7 +90,7 @@ export default function CaseDetail() {
             <Field label="Username" value={target.username} />
             <Field label="Display Name" value={target.display_name ?? "—"} />
             <Field label="Verification" value={target.verification_status} />
-            <Field label="Profile URL" value={<a className="text-blue-400 hover:underline" href={target.profile_url} target="_blank" rel="noreferrer">{target.profile_url}</a>} />
+            <Field label="Profile URL" value={<SafeLink className="text-blue-400 hover:underline" href={target.profile_url}>{target.profile_url}</SafeLink>} />
           </dl>
         </Section>
       )}
@@ -122,7 +123,7 @@ export default function CaseDetail() {
                 <tr key={e.id} className="border-t border-surface-border">
                   <td className="py-1.5">{e.evidence_number}</td>
                   <td className="py-1.5 text-slate-400">{e.type}</td>
-                  <td className="py-1.5 max-w-xs truncate"><a className="text-blue-400 hover:underline" href={e.source_url} target="_blank" rel="noreferrer">{e.source_url}</a></td>
+                  <td className="py-1.5 max-w-xs truncate"><SafeLink className="text-blue-400 hover:underline" href={e.source_url}>{e.source_url}</SafeLink></td>
                   <td className="py-1.5 font-mono text-[11px] text-slate-500">{e.sha256 ? e.sha256.slice(0, 16) + "…" : "—"}</td>
                   <td className="py-1.5"><StatusBadge status={e.verification_status} /></td>
                 </tr>
