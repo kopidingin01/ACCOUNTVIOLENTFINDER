@@ -1,9 +1,20 @@
 from functools import lru_cache
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolved relative to this file, not the current working directory, so
+# `.env` at the repo root is found whether the app/scripts are launched
+# from the repo root or from inside backend/ (e.g. `cd backend && python
+# seed.py`) — a plain env_file=".env" only works in the former case and
+# silently falls back to in-code defaults in the latter, which is exactly
+# the kind of failure that should be loud, not silent.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE = REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "postgresql+psycopg2://report_validator:change_me@localhost:5432/report_validator"
 
