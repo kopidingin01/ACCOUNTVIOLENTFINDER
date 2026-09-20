@@ -76,14 +76,19 @@ def submit_report(report_id: str, payload: ReportSubmitRequest, db: Session = De
     if not report:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Report not found")
 
-    if report.readiness_level.value == "INSUFFICIENT":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, {"error": "REPORT_NOT_READY", "missing": report.missing_items})
-
-    assessment = db.get(ViolationAssessment, report.assessment_id) if report.assessment_id else None
-    if assessment and assessment.status.value not in ("CONFIRMED",):
+    # READY is the only level whose checklist already verifies human review
+    # was completed (see report_service.compute_readiness). Blocking on
+    # anything less than READY — not just INSUFFICIENT — closes a gap where
+    # a report with no linked assessment could otherwise skip the human
+    # review gate required before a report reaches SUBMITTED (spec section 19).
+    if report.readiness_level.value != "READY":
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Human reviewer approval is required (assessment must be CONFIRMED) before submission.",
+            {
+                "error": "REPORT_NOT_READY",
+                "readiness_level": report.readiness_level.value,
+                "missing": report.missing_items,
+            },
         )
 
     platform = db.get(Platform, report.platform_id)

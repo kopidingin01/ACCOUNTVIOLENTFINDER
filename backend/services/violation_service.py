@@ -20,8 +20,19 @@ from sqlalchemy.orm import Session
 from models.content import Content
 from models.enums import AssessmentStatus, EvidenceVerificationStatus, ViolationCategory
 from models.evidence import Evidence
+from models.review import ReviewQueueItem
 from models.violation_assessment import ViolationAssessment
 from services import audit_service, policy_service
+
+
+def _enqueue_for_review(db, case, assessment: ViolationAssessment) -> None:
+    """Every assessment this engine produces requires human review before a
+    report can be submitted (spec section 39), so it is placed on the
+    Review Queue immediately rather than relying on a separate manual step.
+    """
+    item = ReviewQueueItem(case_id=case.id, assessment_id=assessment.id)
+    db.add(item)
+    db.commit()
 
 
 def run_assessment(db: Session, case, user_id: str) -> list[ViolationAssessment]:
@@ -50,6 +61,7 @@ def run_assessment(db: Session, case, user_id: str) -> list[ViolationAssessment]
         db.add(assessment)
         db.commit()
         db.refresh(assessment)
+        _enqueue_for_review(db, case, assessment)
         results.append(assessment)
         audit_service.log_action(db, user_id, "AI_ANALYSIS_RUN", "case", case.case_number, {"result": "insufficient_evidence"})
         return results
@@ -80,6 +92,7 @@ def run_assessment(db: Session, case, user_id: str) -> list[ViolationAssessment]
         db.add(assessment)
         db.commit()
         db.refresh(assessment)
+        _enqueue_for_review(db, case, assessment)
         results.append(assessment)
         audit_service.log_action(db, user_id, "AI_ANALYSIS_RUN", "case", case.case_number, {"result": "no_triage_match"})
         return results
@@ -112,6 +125,7 @@ def run_assessment(db: Session, case, user_id: str) -> list[ViolationAssessment]
         db.add(assessment)
         db.commit()
         db.refresh(assessment)
+        _enqueue_for_review(db, case, assessment)
         results.append(assessment)
 
     audit_service.log_action(

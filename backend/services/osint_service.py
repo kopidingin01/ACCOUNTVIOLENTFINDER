@@ -31,10 +31,6 @@ REQUEST_TIMEOUT = 10.0
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
 
-class CollectionError(Exception):
-    pass
-
-
 def _resolves_to_public_ip(hostname: str) -> bool:
     try:
         infos = socket.getaddrinfo(hostname, None)
@@ -48,16 +44,24 @@ def _resolves_to_public_ip(hostname: str) -> bool:
 
 
 def collect_public_page(url: str) -> dict:
+    collected_at = datetime.now(timezone.utc)
+
+    # These are expected, common outcomes (a malformed URL, a target that
+    # resolves to a private/internal address) — reported as COULD_NOT_COLLECT
+    # like any other collection failure, never raised past this function.
     if not is_valid_http_url(url):
-        raise CollectionError("URL is not a valid http(s) URL")
+        return {"status": "COULD_NOT_COLLECT", "reason": "URL is not a valid http(s) URL", "source_url": url, "collected_at": collected_at.isoformat()}
     if not is_public_hostname(url):
-        raise CollectionError("URL host is not a public address")
+        return {"status": "COULD_NOT_COLLECT", "reason": "URL host is not a public address", "source_url": url, "collected_at": collected_at.isoformat()}
 
     hostname = urlparse(url).hostname
     if hostname and not _resolves_to_public_ip(hostname):
-        raise CollectionError("URL resolves to a non-public address; refusing to fetch (SSRF protection)")
-
-    collected_at = datetime.now(timezone.utc)
+        return {
+            "status": "COULD_NOT_COLLECT",
+            "reason": "URL resolves to a non-public address; refusing to fetch (SSRF protection)",
+            "source_url": url,
+            "collected_at": collected_at.isoformat(),
+        }
     try:
         with httpx.Client(follow_redirects=True, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT}) as client:
             resp = client.get(url)

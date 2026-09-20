@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -13,6 +15,15 @@ settings = get_settings()
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[f"{settings.rate_limit_per_minute}/minute"])
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Dev/demo convenience: creates tables if they do not exist yet.
+    # For production, use versioned migrations (see database/migrations/).
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title="Report Validator — Evidence Collection, Violation Validation & Platform Reporting",
     description=(
@@ -21,6 +32,7 @@ app = FastAPI(
         "the system enforces human review before any report reaches SUBMITTED status."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -43,13 +55,6 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
-
-
-@app.on_event("startup")
-def on_startup():
-    # Dev/demo convenience: creates tables if they do not exist yet.
-    # For production, use versioned migrations (see database/migrations/).
-    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/api/health")
