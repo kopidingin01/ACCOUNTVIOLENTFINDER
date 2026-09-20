@@ -1,7 +1,13 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+INSECURE_DEFAULT_SECRETS = {
+    "jwt_secret": "insecure-dev-secret-change-me",
+    "encryption_secret": "insecure-dev-encryption-secret-change-me",
+}
 
 # Resolved relative to this file, not the current working directory, so
 # `.env` at the repo root is found whether the app/scripts are launched
@@ -22,6 +28,15 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+
+    # Independent from jwt_secret on purpose: this key encrypts secrets at
+    # rest (platform API credentials, see services/crypto_service.py) while
+    # jwt_secret signs auth tokens — a much more exposed value (sent to
+    # every client indirectly via HS256-signed tokens, rotated during
+    # incident response). Reusing one secret for both meant a JWT-secret
+    # leak also decrypted every stored credential, and rotating it silently
+    # broke existing ciphertext.
+    encryption_secret: str = "insecure-dev-encryption-secret-change-me"
 
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
@@ -45,6 +60,22 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @model_validator(mode="after")
+    def _reject_insecure_default_secrets(self) -> "Settings":
+        # These string defaults are public (they're in the repo on GitHub),
+        # so starting with either one left unset would let anyone forge
+        # auth tokens or decrypt stored platform credentials. Failing loudly
+        # here beats silently running insecure — set JWT_SECRET and
+        # ENCRYPTION_SECRET via the environment or .env before starting.
+        leftover = [field for field, default in INSECURE_DEFAULT_SECRETS.items() if getattr(self, field) == default]
+        if leftover:
+            names = ", ".join(name.upper() for name in leftover)
+            raise ValueError(
+                f"{names} still set to its insecure built-in default. "
+                "Set a real random value via the environment or .env before starting the app."
+            )
+        return self
 
 
 @lru_cache

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import Layout from "../components/Layout";
+import SafeLink from "../components/SafeLink";
 import StatusBadge from "../components/StatusBadge";
 import type { AccountFinderResult } from "../types";
 
@@ -59,7 +60,7 @@ export default function AccountFinder() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-slate-100">{result.platform}</div>
-                <a href={result.profile_url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">{result.profile_url}</a>
+                <SafeLink href={result.profile_url} className="text-xs text-blue-400 hover:underline">{result.profile_url}</SafeLink>
               </div>
               <StatusBadge status={result.collection_status} />
             </div>

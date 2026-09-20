@@ -7,6 +7,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "test-secret-for-pytest-only-do-not-use-in-prod")
+os.environ.setdefault("ENCRYPTION_SECRET", "test-encryption-secret-for-pytest-only-do-not-use-in-prod")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
 
 import pytest  # noqa: E402

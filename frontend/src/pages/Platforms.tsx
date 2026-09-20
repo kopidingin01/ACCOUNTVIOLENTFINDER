@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import Layout from "../components/Layout";
+import SafeLink from "../components/SafeLink";
 import { useAuth } from "../hooks/useAuth";
 import type { Platform } from "../types";
 
@@ -55,9 +56,9 @@ export default function Platforms() {
             </div>
             <div className="text-xs text-slate-400 mt-1">{p.domain}</div>
             {p.reporting_url && (
-              <a href={p.reporting_url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline block mt-2">
+              <SafeLink href={p.reporting_url} className="text-xs text-blue-400 hover:underline block mt-2">
                 Official report page →
-              </a>
+              </SafeLink>
             )}
           </div>
         ))}

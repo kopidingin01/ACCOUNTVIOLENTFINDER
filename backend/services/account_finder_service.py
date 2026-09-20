@@ -28,6 +28,7 @@ from models.platform import Platform
 from models.target import Target
 from services import audit_service, policy_service, osint_service
 from utils.ids import generate_case_number, generate_evidence_number
+from utils.validators import is_valid_http_url
 
 
 def _find_platform_by_url(db: Session, url: str) -> Platform | None:
@@ -63,6 +64,14 @@ def _get_or_create_target(db: Session, platform: Platform, url: str, collected: 
 
 
 def analyze_account(db: Session, account_url: str, create_case: bool, user_id: str) -> dict:
+    # Belt-and-suspenders: schemas.osint.AccountFinderRequest already rejects
+    # a non-http(s) account_url (e.g. a javascript: URI whose hostname still
+    # substring-matches a platform domain below), but this function is where
+    # the value actually gets persisted to Target.profile_url/source_url and
+    # must not trust that every caller went through that schema.
+    if not is_valid_http_url(account_url):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "account_url must be a valid http(s) URL")
+
     platform = _find_platform_by_url(db, account_url)
     if platform is None:
         raise HTTPException(
