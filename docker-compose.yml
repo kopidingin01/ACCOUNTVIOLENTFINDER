@@ -1,0 +1,48 @@
+# NOTE ON THE DATABASE: this compose file does NOT run a local Postgres
+# container. The backend connects to a managed Supabase Postgres instance
+# via DATABASE_URL in .env (see .env.example). If you want a fully local
+# stack instead, add your own `postgres:16` service and point DATABASE_URL
+# at it — the backend has no code dependency on Supabase specifically, it
+# just speaks standard PostgreSQL over SQLAlchemy.
+
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      - STORAGE_PATH=/app/storage/evidence
+    volumes:
+      - ./storage/evidence:/app/storage/evidence
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  # Optional local LLM for services/ai_service.py's assistive analysis.
+  # The system works fully without it (falls back to the rule-based
+  # engine). Start with: docker compose --profile ai up
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
