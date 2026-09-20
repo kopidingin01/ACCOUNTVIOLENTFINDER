@@ -14,6 +14,7 @@ import Reports from "./pages/Reports";
 import ReviewQueue from "./pages/ReviewQueue";
 import Settings from "./pages/Settings";
 import Targets from "./pages/Targets";
+import Users from "./pages/Users";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/reviews" element={<ProtectedRoute roles={["ADMIN", "REVIEWER", "AUDITOR", "ANALYST"]}><ReviewQueue /></ProtectedRoute>} />
         <Route path="/platforms" element={<ProtectedRoute><Platforms /></ProtectedRoute>} />
         <Route path="/audit" element={<ProtectedRoute roles={["ADMIN", "AUDITOR"]}><AuditLogs /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute roles={["ADMIN"]}><Users /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

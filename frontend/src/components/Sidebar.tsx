@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: "▤" },
@@ -10,11 +11,13 @@ const NAV_ITEMS = [
   { to: "/reports", label: "Reports", icon: "📄" },
   { to: "/reviews", label: "Review Queue", icon: "✅" },
   { to: "/platforms", label: "Platforms", icon: "🌐" },
+  { to: "/users", label: "Users", icon: "🧑‍🤝‍🧑", adminOnly: true },
   { to: "/audit", label: "Audit Logs", icon: "🧾" },
   { to: "/settings", label: "Settings", icon: "⚙" },
 ];
 
 export default function Sidebar() {
+  const { hasRole } = useAuth();
   return (
     <aside className="w-60 shrink-0 border-r border-surface-border bg-surface-panel h-screen sticky top-0 flex flex-col">
       <div className="px-4 py-5 border-b border-surface-border">
@@ -22,7 +25,7 @@ export default function Sidebar() {
         <div className="text-[11px] text-slate-400 mt-0.5">Evidence &amp; Trust &amp; Safety</div>
       </div>
       <nav className="flex-1 overflow-y-auto py-2">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => !item.adminOnly || hasRole("ADMIN")).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

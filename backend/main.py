@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address
 import models  # noqa: F401 ensures all models are registered on Base.metadata
 from config import get_settings
 from database import Base, engine
-from routers import assessments, audit, auth, cases, dashboard, evidence, osint, platforms, policies, reports, reviews, targets
+from routers import assessments, audit, auth, cases, dashboard, evidence, osint, platforms, policies, reports, reviews, targets, users
 
 settings = get_settings()
 
@@ -74,3 +74,4 @@ app.include_router(platforms.router)
 app.include_router(audit.router)
 app.include_router(dashboard.router)
 app.include_router(osint.router)
+app.include_router(users.router)
