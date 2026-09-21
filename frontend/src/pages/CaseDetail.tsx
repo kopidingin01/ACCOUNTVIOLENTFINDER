@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile } from "../api/client";
 import Layout from "../components/Layout";
 import ReadinessCheck from "../components/ReadinessCheck";
@@ -7,8 +7,14 @@ import StatusBadge from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import type { AuditLogEntry, Case, Evidence, Assessment, Platform, Report, Target } from "../types";
 
+const CASE_STATUSES = [
+  "NEW", "COLLECTING_EVIDENCE", "EVIDENCE_VALIDATED", "UNDER_REVIEW", "VIOLATION_CONFIRMED",
+  "REPORT_READY", "SUBMITTED", "ACKNOWLEDGED", "ACTION_TAKEN", "REJECTED", "CLOSED",
+];
+
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { hasRole } = useAuth();
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [platform, setPlatform] = useState<Platform | null>(null);
@@ -18,6 +24,13 @@ export default function CaseDetail() {
   const [reports, setReports] = useState<Report[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", priority: "MEDIUM", description: "", status: "NEW" });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const canEdit = hasRole("ADMIN", "ANALYST");
+  const canDelete = hasRole("ADMIN");
 
   function refresh() {
     if (!id) return;
@@ -68,18 +81,141 @@ export default function CaseDetail() {
     }
   }
 
+  function startEdit() {
+    if (!caseData) return;
+    setEditForm({
+      title: caseData.title,
+      priority: caseData.priority,
+      description: caseData.description ?? "",
+      status: caseData.status,
+    });
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    if (!id) return;
+    setEditError(null);
+    try {
+      await api.patch(`/cases/${id}`, editForm);
+      setEditing(false);
+      refresh();
+    } catch (e) {
+      setEditError(e instanceof ApiError ? String(e.detail) : "Failed to update case");
+    }
+  }
+
+  async function setStatus(newStatus: string) {
+    if (!id) return;
+    setMessage(null);
+    try {
+      await api.patch(`/cases/${id}`, { status: newStatus });
+      refresh();
+    } catch (e) {
+      setMessage(e instanceof ApiError ? String(e.detail) : "Failed to update status");
+    }
+  }
+
+  async function deleteCase() {
+    if (!id || !caseData) return;
+    const confirmed = window.confirm(
+      `Permanently delete case ${caseData.case_number}? This removes all its evidence, assessments, and reports too, and cannot be undone.\n\nTo just retire the case while keeping the record, use "Reject" or "Close" instead.`
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/cases/${id}`);
+      navigate("/cases");
+    } catch (e) {
+      setMessage(e instanceof ApiError ? String(e.detail) : "Failed to delete case");
+      setDeleting(false);
+    }
+  }
+
   if (!caseData) return <Layout title="Case"><div className="text-slate-400">Loading…</div></Layout>;
 
   return (
     <Layout title={caseData.case_number}>
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-slate-100">{caseData.title}</h2>
-        <div className="flex items-center gap-2 mt-1">
-          <StatusBadge status={caseData.status} />
-          <span className="text-xs text-slate-500">Priority: {caseData.priority}</span>
-          <span className="text-xs text-slate-500">Platform: {platform?.name}</span>
-        </div>
-        {caseData.description && <p className="text-sm text-slate-400 mt-2">{caseData.description}</p>}
+        {editing ? (
+          <div className="rounded-lg border border-surface-border bg-surface-panel p-4 space-y-3 max-w-lg">
+            <input
+              className="w-full rounded-md bg-surface border border-surface-border px-3 py-2 text-sm"
+              placeholder="Case title"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            />
+            <div className="flex gap-3">
+              <select
+                className="flex-1 rounded-md bg-surface border border-surface-border px-3 py-2 text-sm"
+                value={editForm.priority}
+                onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
+              >
+                {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select
+                className="flex-1 rounded-md bg-surface border border-surface-border px-3 py-2 text-sm"
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+              >
+                {CASE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <textarea
+              className="w-full rounded-md bg-surface border border-surface-border px-3 py-2 text-sm"
+              placeholder="Description"
+              value={editForm.description}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            />
+            {editError && <div className="text-sm text-rose-400">{editError}</div>}
+            <div className="flex gap-2">
+              <button onClick={saveEdit} className="px-3 py-1.5 rounded-md bg-accent-DEFAULT text-white text-sm">
+                Save
+              </button>
+              <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-md border border-surface-border text-sm text-slate-300">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-slate-100">{caseData.title}</h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {canEdit && (
+                  <button onClick={startEdit} className="text-xs px-2.5 py-1 rounded border border-surface-border text-slate-300 hover:bg-white/5">
+                    Edit
+                  </button>
+                )}
+                {canEdit && caseData.status !== "REJECTED" && (
+                  <button onClick={() => setStatus("REJECTED")} className="text-xs px-2.5 py-1 rounded border border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+                    Reject
+                  </button>
+                )}
+                {canEdit && caseData.status !== "CLOSED" && (
+                  <button onClick={() => setStatus("CLOSED")} className="text-xs px-2.5 py-1 rounded border border-surface-border text-slate-300 hover:bg-white/5">
+                    Close
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={deleteCase}
+                    disabled={deleting}
+                    className="text-xs px-2.5 py-1 rounded border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <StatusBadge status={caseData.status} />
+              <span className="text-xs text-slate-500">Priority: {caseData.priority}</span>
+              <span className="text-xs text-slate-500">Platform: {platform?.name}</span>
+            </div>
+            {caseData.description && <p className="text-sm text-slate-400 mt-2">{caseData.description}</p>}
+          </>
+        )}
       </div>
 
       {message && <div className="mb-4 text-sm text-amber-400 border border-amber-500/30 bg-amber-500/10 rounded-md px-3 py-2">{message}</div>}

@@ -8,7 +8,7 @@ from models.user import User
 from schemas.case import CaseCreate, CaseOut, CaseUpdate
 from schemas.report import ReadinessPreview
 from security import require_permission
-from services import audit_service, report_service
+from services import audit_service, case_service, report_service
 from utils.ids import generate_case_number
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
@@ -86,3 +86,15 @@ def update_case(case_id: str, payload: CaseUpdate, db: Session = Depends(get_db)
     loggable_changes = {k: (v.value if hasattr(v, "value") else v) for k, v in changes.items()}
     audit_service.log_action(db, user.id, "CASE_UPDATED", "case", case.case_number, loggable_changes)
     return case
+
+
+@router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_case(case_id: str, db: Session = Depends(get_db), user: User = Depends(require_permission("case:delete"))):
+    """Permanently deletes a case and everything filed under it (evidence,
+    assessments, reports, review queue entries). Restricted to admins —
+    for routine retirement of a case, change its status to REJECTED or
+    CLOSED instead, which keeps the record intact for the audit trail."""
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Case not found")
+    case_service.delete_case_cascade(db, case, user.id)
